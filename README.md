@@ -2,4 +2,4 @@
 GNSS, IMU data send
 
 ## Used libraries
-* 'socket.io'
+* `socket.io`
