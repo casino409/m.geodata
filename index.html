@@ -1,0 +1,104 @@
+<!doctype html>
+<head>
+<meta charset="utf-8">
+<title>IMU data logging</title>
+</head>
+<body>Hello user <div id="my_name">NoName</div><br>
+
+<div id="a_x">None</div><br>
+<div id="a_y">None</div><br>
+<div id="a_z">None</div><br>
+<div id="pos">None</div><br>
+<div id="map">None</div><br>
+
+<ul id="chat"></ul>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="http://code.jquery.com/jquery-1.11.1.js"></script>
+<script>
+var send_data_period = 2000; // ms
+
+var uid = null;
+var key = null;
+
+var socket = io.connect('http://192.168.1.45:8888');
+
+function get_msg(str) {
+  $('#chat').append($('<li>').text(str));
+}
+
+socket.on('msg_id', function(str) {
+  uid = str;
+  get_msg('user id = ' + uid);
+  $('#my_name').text(uid);
+});
+
+socket.on('msg_key', function(str) {
+  key = str;
+  get_msg('user key = ' + key);
+});
+
+socket.on('msg', get_msg);
+
+function Meas(TS, A, R) {
+  this.a  = A;
+  this.r  = R;
+  this.ts = TS;
+  this.t  = Date.now();
+};
+
+var start     = performance.now();
+var send_buff = [];                // array with measures
+
+if(window.DeviceMotionEvent != undefined) {
+  window.ondevicemotion = function(e) {
+
+    // e.accelerationIncludingGravity;
+    // e.acceleration;
+    // e.rotationRate;
+    // e.interval;
+
+    var m = new Meas(e.interval,
+                     e.accelerationIncludingGravity,
+                     e.rotationRate);
+
+    send_buff.push(m);
+
+    $('#a_x').text('acc x = ' + m.a.x);
+    $('#a_y').text('acc y = ' + m.a.y);
+    $('#a_z').text('acc z = ' + m.a.z);
+  }
+}
+
+function getLocation() {
+  if (navigator.geolocation)
+    navigator.geolocation.watchPosition(showPosition);
+  else
+    $('#pos').text('Geolocation is not supported by this browser.');
+}
+
+function showPosition(position) {
+  // getCurrentPosition();
+
+  $('#pos').text('Lat: ' + position.coords.latitude + ' Long: ' + position.coords.longitude);
+  
+  var latlon = position.coords.latitude + "," + position.coords.longitude;
+
+  var img_url = "http://maps.googleapis.com/maps/api/staticmap?center="+latlon+"&zoom=14&size=400x300&sensor=false";
+
+  document.getElementById("map").innerHTML = "<img src='"+img_url+"'>";
+}
+
+getLocation();
+
+window.setInterval(function() {
+  var end = performance.now();
+  var dt  = end - start; // ms
+
+  socket.emit('msg_imu_data', JSON.stringify(send_buff));
+
+  send_buff = [];
+}, send_data_period);
+</script>
+</body>
+</html>
